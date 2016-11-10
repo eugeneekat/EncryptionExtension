@@ -232,7 +232,7 @@ namespace EncryptionExtension
                 await stream.ReadAsync(buf, 0, buf.Length, token);
 
                 //Зашфировать используя шифровщик и записать
-                await enc.EncryptAsync(buf, key, token);
+                await enc.Encrypt(buf, key, token);
 
                 stream.Position = 0;
                 await stream.WriteAsync(buf, 0, buf.Length, token);
@@ -280,7 +280,7 @@ namespace EncryptionExtension
                     stream.Position = 0;
                     await stream.ReadAsync(buf, 0, buf.Length, token);
                     //Расшифровываем
-                    await enc.DecryptAsync(buf, key, token);
+                    await enc.Decrypt(buf, key, token);
                     //Записывем
                     stream.Position = 0;
                     await stream.WriteAsync(buf, 0, buf.Length, token);
