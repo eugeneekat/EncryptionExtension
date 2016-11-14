@@ -25,8 +25,8 @@ namespace Encryptors
         public abstract void Decrypt(ref byte[] source, byte[] code);
 
         //Async methods with cancellation
-        public abstract Task Encrypt(byte[] source, byte[] code, CancellationToken token);
-        public abstract Task Decrypt(byte[] source, byte[] code, CancellationToken token);
+        public abstract int Encrypt(byte[] source, byte[] code, CancellationToken token);
+        public abstract int Decrypt(byte[] source, byte[] code, CancellationToken token);
     }
 
     //Text Classes Factory
@@ -72,7 +72,7 @@ namespace Encryptors
 
 
         //With Cancellation
-        public override Task Encrypt(byte[] source, byte[] code, CancellationToken token)
+        public override int Encrypt(byte[] source, byte[] code, CancellationToken token)
         {
             for (int i = 0, j = 0; i < source.Length; i++, j++)
             {
@@ -84,9 +84,9 @@ namespace Encryptors
                 source[i] = (byte)(source[i] ^ code[j]);
             }
             //Return successful result
-            return Task.FromResult(0);
+            return source.Length;
         }
-        public override Task Decrypt(byte[] source, byte[] code, CancellationToken token)
+        public override int Decrypt(byte[] source, byte[] code, CancellationToken token)
         {
             return this.Encrypt(source, code, token);
         }

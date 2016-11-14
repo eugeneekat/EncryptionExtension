@@ -210,88 +210,94 @@ namespace EncryptionExtension
         //Base ByteEncryptor methods for Stream async with cancellation token
         public static async Task EncryptAsync(this Stream stream, ByteEncryptor enc, byte[] key, CancellationToken token)
         {
-            if (stream == null || enc == null || key == null)
-                throw new ArgumentNullException("Null argument");
-            //Если файл пустой или ключ пустой бросает исключение
-            if (stream.Length == 0)
-                throw new ArgumentException("Stream is empty", "stream");
-            if (key.Length == 0)
-                throw new ArgumentException("Key is empty", "key");
-
-            //Проверка метки
-            if (stream.Length > mark.Length)
-                stream.Position = stream.Length - mark.Length;
-            byte[] compareMark = new byte[mark.Length];
-            await stream.ReadAsync(compareMark, 0, mark.Length, token);
-            //Если метки нету значит файл не шифрован ещё
-            if (!mark.SequenceEqual(compareMark))
+            await Task.Run(async () =>
             {
-                //Устанавливаю позицию в начало создаю буфер и считываю содержимое
+                if (stream == null || enc == null || key == null)
+                    throw new ArgumentNullException("Null argument");
+                //Если файл пустой или ключ пустой бросает исключение
+                if (stream.Length == 0)
+                    throw new ArgumentException("Stream is empty", "stream");
+                if (key.Length == 0)
+                    throw new ArgumentException("Key is empty", "key");
+
+                //Проверка метки
+                if (stream.Length > mark.Length)
+                    stream.Position = stream.Length - mark.Length;
+                byte[] compareMark = new byte[mark.Length];
+                await stream.ReadAsync(compareMark, 0, mark.Length, token);
+                //Если метки нету значит файл не шифрован ещё
+                if (!mark.SequenceEqual(compareMark))
+                {
+                    //Устанавливаю позицию в начало создаю буфер и считываю содержимое
+                    stream.Position = 0;
+                    byte[] buf = new byte[stream.Length];
+                    await stream.ReadAsync(buf, 0, buf.Length, token);
+
+                    //Зашфировать используя шифровщик и записать
+                    await Task.FromResult(enc.Encrypt(buf, key, token));
+
+                    stream.Position = 0;
+                    await stream.WriteAsync(buf, 0, buf.Length, token);
+
+                    //Записать хеш
+                    MD5 md5 = MD5.Create();
+                    byte[] bHash = md5.ComputeHash(key);
+                    await stream.WriteAsync(bHash, 0, bHash.Length, token);
+
+                    //Записать метку            
+                    await stream.WriteAsync(mark, 0, mark.Length, token);
+                }
                 stream.Position = 0;
-                byte[] buf = new byte[stream.Length];
-                await stream.ReadAsync(buf, 0, buf.Length, token);
-
-                //Зашфировать используя шифровщик и записать
-                await enc.Encrypt(buf, key, token);
-
-                stream.Position = 0;
-                await stream.WriteAsync(buf, 0, buf.Length, token);
-
-                //Записать хеш
-                MD5 md5 = MD5.Create();
-                byte[] bHash = md5.ComputeHash(key);
-                await stream.WriteAsync(bHash, 0, bHash.Length, token);
-
-                //Записать метку            
-                await stream.WriteAsync(mark, 0, mark.Length, token);
-            }
-            stream.Position = 0;
+            });
         }
         public static async Task DecryptAsync(this Stream stream, ByteEncryptor enc, byte[] key, CancellationToken token)
         {
-            if (stream == null || enc == null || key == null)
-                throw new ArgumentNullException("Null argument");
-            //Если файл пустой или ключ пустой бросает исключение
-            if (stream.Length == 0)
-                throw new ArgumentException("Stream is empty", "stream");
-            if (key.Length == 0)
-                throw new ArgumentException("Key is empty", "key");
-
-            //Создаем метку и метку для сравнивания
-            stream.Position = 0;
-            byte[] compareMark = new byte[mark.Length];
-            stream.Position = stream.Length - mark.Length;
-            await stream.ReadAsync(compareMark, 0, compareMark.Length, token);
-
-            //Если есть метка
-            if (mark.SequenceEqual(compareMark))
+            await Task.Run(async () =>
             {
-                //Создаем хеш и сравниваем
-                MD5 md5 = MD5.Create();
-                byte[] bHash = md5.ComputeHash(key);
-                byte[] compareHash = new byte[bHash.Length];
-                stream.Position = stream.Length - mark.Length - bHash.Length;
-                await stream.ReadAsync(compareHash, 0, bHash.Length, token);
-                //Если хеш совпадает
-                if (bHash.SequenceEqual(compareHash))
+                if (stream == null || enc == null || key == null)
+                    throw new ArgumentNullException("Null argument");
+                //Если файл пустой или ключ пустой бросает исключение
+                if (stream.Length == 0)
+                    throw new ArgumentException("Stream is empty", "stream");
+                if (key.Length == 0)
+                    throw new ArgumentException("Key is empty", "key");
+
+                //Создаем метку и метку для сравнивания
+                stream.Position = 0;
+                byte[] compareMark = new byte[mark.Length];
+                stream.Position = stream.Length - mark.Length;
+                await stream.ReadAsync(compareMark, 0, compareMark.Length, token);
+
+                //Если есть метка
+                if (mark.SequenceEqual(compareMark))
                 {
-                    //Создаем буфер считываем в него данные
-                    byte[] buf = new byte[stream.Length];
-                    stream.Position = 0;
-                    await stream.ReadAsync(buf, 0, buf.Length, token);
-                    //Расшифровываем
-                    await enc.Decrypt(buf, key, token);
-                    //Записывем
-                    stream.Position = 0;
-                    await stream.WriteAsync(buf, 0, buf.Length, token);
-                    //Урезаем метку и хеш
-                    stream.Position = 0;
-                    stream.SetLength(buf.Length - mark.Length - bHash.Length);
+                    //Создаем хеш и сравниваем
+                    MD5 md5 = MD5.Create();
+                    byte[] bHash = md5.ComputeHash(key);
+                    byte[] compareHash = new byte[bHash.Length];
+                    stream.Position = stream.Length - mark.Length - bHash.Length;
+                    await stream.ReadAsync(compareHash, 0, bHash.Length, token);
+                    //Если хеш совпадает
+                    if (bHash.SequenceEqual(compareHash))
+                    {
+                        //Создаем буфер считываем в него данные
+                        byte[] buf = new byte[stream.Length];
+                        stream.Position = 0;
+                        await stream.ReadAsync(buf, 0, buf.Length, token);
+                        //Расшифровываем
+                        await Task.FromResult(enc.Decrypt(buf, key, token));
+                        //Записывем
+                        stream.Position = 0;
+                        await stream.WriteAsync(buf, 0, buf.Length, token);
+                        //Урезаем метку и хеш
+                        stream.Position = 0;
+                        stream.SetLength(buf.Length - mark.Length - bHash.Length);
+                    }
+                    else
+                        throw new ArgumentException("Incorrect key.", "key");
                 }
-                else
-                    throw new ArgumentException("Incorrect key.", "key");
-            }
-            stream.Position = 0;
+                stream.Position = 0;
+            });
         }
     }
 }
